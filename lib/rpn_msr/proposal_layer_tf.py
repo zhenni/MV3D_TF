@@ -143,6 +143,14 @@ def proposal_layer_3d(rpn_cls_prob_reshape,rpn_bbox_pred,im_info,calib,cfg_key, 
     proposals_img = proposals_img[keep, :]
     scores = scores[keep]
 
+    # Remove empty boxes
+    # TODO: get density_map
+    keep = _non_empty_boxes(boxes, density_map)
+    proposals_bv = proposals_bv[keep, :]
+    proposals_3d = proposals_3d[keep, :]
+    proposals_img = proposals_img[keep, :]
+    scores = scores[keep]
+
     # TODO: pass real image_info
     keep = _filter_img_boxes(proposals_img, [375, 1242])
     proposals_bv = proposals_bv[keep, :]
@@ -350,3 +358,13 @@ def _filter_img_boxes(boxes, im_info):
     keep = np.where((w_min <= boxes[:,0]) & (boxes[:,2] <= w_max) & (h_min <= boxes[:,1]) &
                     (boxes[:,3] <= h_max))[0]
     return keep
+
+def _non_empty_boxes(boxes, density_map):
+    # image_integral
+    im_integral = density_map.cumsum(1).cumsum(0)
+    x1, y1, x2, y2 = boxes[:, :4].T.astype(np.int)
+    box_density = im_integral[y2, x2] - im_integral[y1, x2] - im_integral[y2, x1] + im_integral[y1, x1]
+    keep = np.where(box_density > 1e-2)[0]
+    # print box_density[keep]
+    return keep
+
